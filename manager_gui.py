@@ -1,10 +1,10 @@
-import sys
 import datetime
+import sys
 import time
 
 from PyQt5 import QtGui
-from PyQt5.QtCore import QThreadPool, QDate, QTimer, pyqtSlot, QCoreApplication
-from PyQt5.QtWidgets import QMessageBox, QMainWindow, QRadioButton, QFileDialog
+from PyQt5.QtCore import pyqtSlot, QCoreApplication, QDate, QThreadPool, QTimer
+from PyQt5.QtWidgets import QFileDialog, QMainWindow, QMessageBox, QRadioButton
 
 import main_window  # Это наш конвертированный файл дизайна
 from output_logger import OutputLogger

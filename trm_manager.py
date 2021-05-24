@@ -8,15 +8,15 @@ import warnings
 
 import fitz
 from openpyxl import load_workbook
-from PyPDF2 import PdfFileReader
 from openpyxl.worksheet.worksheet import Worksheet
+from PyPDF2 import PdfFileReader
 from xlrd import open_workbook
 
 import config
 from database import DataBase
+from document import Document
 from print_progress_bar import PrintProgressBar
 from transmittal import Transmittal
-from document import Document
 
 
 class TrmManager:
@@ -1400,4 +1400,6 @@ class TrmManager:
 
         if target_free > total_size + 100*1024**2:
             self.__collect_docs_to_be_printed(target_dir)
+        else:
+            print('ERROR: disk space is not enough for copying files!', file=sys.stderr)
         self.__write_docs_info_to_be_printed(doc_dict, target_dir)
