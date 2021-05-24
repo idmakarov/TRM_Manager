@@ -1234,7 +1234,8 @@ class TrmManager:
 
         Returns
         -------
-        None
+        total_size : int
+            Total size of files for printing in bytes.
         """
         item_names_list = self.db.get_item_names()
         trm_names_list = [item_name for item_name in item_names_list if 'TRM' in item_name]
@@ -1249,6 +1250,8 @@ class TrmManager:
         print('Getting pages info from documents...')
         total = len(doc_dict)
         bar = PrintProgressBar(start=0, total=total, prefix='Progress:', suffix='Complete', length=50)
+
+        total_size = 0
 
         for doc_num in doc_dict:
             trm_name = doc_dict[doc_num][0]
@@ -1271,14 +1274,19 @@ class TrmManager:
                     bar.print_progress_bar()
                     continue
 
+                file_size = os.path.getsize(file_path)
+                if status == 'Ок':
+                    total_size += file_size
+
                 format_list = self.__get_sheet_format_from_pdf(pdf, return_format_list=True)
 
-                cur_trm.documents[doc_name].extend([format_list, status])
+                cur_trm.documents[doc_name].extend([file_size, format_list, status])
                 doc_dict[doc_num].append(format_list)
 
             bar.print_progress_bar()
 
         print('Pages info was successfully collected!')
+        return total_size
 
     def __collect_docs_to_be_printed(self, target_dir: str):
         """
@@ -1386,6 +1394,10 @@ class TrmManager:
         """
         target_dir = self.__print_dir
         doc_dict = self.__parse_all_docs_info_from_vdr(cur_vdr)
-        self.__parse_docs_in_received_trms(doc_dict)
-        self.__collect_docs_to_be_printed(target_dir)
+
+        total_size = self.__parse_docs_in_received_trms(doc_dict)
+        target_free = shutil.disk_usage(target_dir).free
+
+        if target_free > total_size + 100*1024**2:
+            self.__collect_docs_to_be_printed(target_dir)
         self.__write_docs_info_to_be_printed(doc_dict, target_dir)
