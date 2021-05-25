@@ -1,4 +1,4 @@
-from PyQt5.QtCore import QObject
+from PyQt5.QtCore import QObject, pyqtSignal
 
 
 class OutputLogger(QObject):
@@ -8,6 +8,8 @@ class OutputLogger(QObject):
 
     Attributes
     ----------
+    emit_write
+        Signal to be connected to some console output.
     io_stream
         Standard output stream.
     severity
@@ -21,6 +23,8 @@ class OutputLogger(QObject):
         Forcibly cleans up an io stream.
     """
 
+    emit_write = pyqtSignal(str, int)
+
     class Severity:
         NORMAL = 0
         ERROR = 1
@@ -31,7 +35,7 @@ class OutputLogger(QObject):
         self.io_stream = io_stream
         self.severity = severity
 
-    def write(self, text):
+    def write(self, text: str):
         self.io_stream.write(text)
         self.emit_write.emit(text, self.severity)
 
