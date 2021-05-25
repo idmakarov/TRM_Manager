@@ -716,7 +716,7 @@ class TrmManager:
             except FileNotFoundError:
                 if bar:
                     bar.print_progress_bar()
-                print('ERROR: {} was not found in {}!'.format(doc_name, cur_trm.name), file=sys.stderr)
+                print('ERROR: {}.pdf was not found in {}'.format(doc_name, cur_trm.name), file=sys.stderr)
                 return None, None
         if cur_trm.documents[doc_name] is None:
             if bar:
@@ -1019,7 +1019,7 @@ class TrmManager:
         path : str
             Path to the transmittal inventory file.
         """
-        mask = trm_name + '.xls'
+        mask = trm_name + '.xls*'
         file_check = 0
         for item in os.listdir(path):
             file_check += 1
@@ -1034,6 +1034,29 @@ class TrmManager:
                 self.__get_received_trm_inventory_path(trm_name, path)
             except:
                 print('ERROR: TRM inventory file was not found!', file=sys.stderr)
+
+    @staticmethod
+    def clarify_doc_name(trm_doc_names, doc_name_to_clarify: str):
+        """
+        Compares document name from TRM inventory file and file name in corresponding folder.
+        If parts of the names before 'ER' match then return file name, else - document name from TRM inventory file.
+
+        Parameters
+        ----------
+        trm_doc_names : list-like
+            List of files name in transmittal folder.
+        doc_name_to_clarify : str
+            Document name from TRM inventory file to be clarified.
+        """
+        trm_doc_names = list(trm_doc_names)
+        name_1_list = [doc_name.split('ER')[0] for doc_name in trm_doc_names]
+        name_2 = doc_name_to_clarify.split('ER')[0]
+
+        try:
+            index = name_1_list.index(name_2)
+            return trm_doc_names[index]
+        except ValueError:
+            return doc_name_to_clarify
 
     def parse_received_trm(self, cur_trm: Transmittal):
         """
@@ -1051,32 +1074,37 @@ class TrmManager:
         print('Processing {}...'.format(cur_trm.name))
 
         inventory_path = self.__get_received_trm_inventory_path(cur_trm.name, cur_trm.path)
+        if inventory_path is None:
+            return
+
         wb_data = open_workbook(inventory_path, logfile=open(os.devnull, 'w'))
-        sheet_data = wb_data.sheet_by_name('TRM')
-        phase = None
+        sheet_data = wb_data.sheet_by_index(0)
+
+        col_names = [str(sheet_data.cell_value(6, i)).lower() for i in range(sheet_data.ncols)]
+        try:
+            doc_number_col = col_names.index([c for c in col_names if 'project doc number' in c.lower()][0])
+            doc_name_col = col_names.index([c for c in col_names if 'electronic filename' in c.lower()][0])
+            doc_rev_col = col_names.index('rev')
+            crs_code_col = col_names.index('comments')
+        except ValueError:
+            print('ERROR: cannot parse trm inventory file (unknown columns name)!', file=sys.stderr)
+            return
 
         rng = range(7, sheet_data.nrows)
-        total = len(rng)
-        bar = PrintProgressBar(start=0, total=total, prefix='Progress:', suffix='Complete', length=50)
         for i in rng:
             if sheet_data.cell_value(rowx=i, colx=3):
-                doc_number = self.__preprocess_str(sheet_data.cell_value(rowx=i, colx=3))
-                doc_name = self.__preprocess_str(sheet_data.cell_value(rowx=i, colx=17)[:-4])
-                doc_rev = self.__preprocess_str(sheet_data.cell_value(rowx=i, colx=12))
-                crs_code = self.__preprocess_str(sheet_data.cell_value(rowx=i, colx=18))
-                phase = doc_number.split('.')[1]
-                if phase == '0':
-                    phase = '1'
+                doc_number = self.__preprocess_str(sheet_data.cell_value(rowx=i, colx=doc_number_col))
+                doc_name = self.__preprocess_str(sheet_data.cell_value(rowx=i, colx=doc_name_col)[:-4])
+                doc_rev = self.__preprocess_str(sheet_data.cell_value(rowx=i, colx=doc_rev_col))
+                crs_code = self.__preprocess_str(sheet_data.cell_value(rowx=i, colx=crs_code_col))
+                phase = cur_trm.phase
                 trm_date = sheet_data.cell_value(rowx=0, colx=8)
                 prop_list = [doc_number, doc_rev, crs_code, phase, trm_date]
 
+                doc_name = self.clarify_doc_name(cur_trm.documents.keys(), doc_name)
                 cur_trm.documents[doc_name] = prop_list
 
-            bar.print_progress_bar()
-
-        if cur_trm.documents:
-            cur_trm.phase = phase
-            print('Received TRM was successfully processed')
+        print('Received TRM was successfully processed')
 
     def fill_vdr_fields(self, cur_trm: Transmittal):
         """
@@ -1261,13 +1289,18 @@ class TrmManager:
                 trm_id = item_names_list.index(trm_name)
                 cur_trm = self.db.get_item(trm_id)
 
-                doc_index = [
-                    cur_trm.documents[doc][0]
-                    if cur_trm.documents[doc]
-                    else ''
-                    for doc in cur_trm.documents
-                ].index(doc_num)
-                doc_name = list(cur_trm.documents)[doc_index]
+                try:
+                    doc_index = [
+                        cur_trm.documents[doc][0]
+                        if cur_trm.documents[doc]
+                        else ''
+                        for doc in cur_trm.documents
+                    ].index(doc_num)
+                    doc_name = list(cur_trm.documents)[doc_index]
+                except ValueError:
+                    print('ERROR: {} was not found in {}'.format(doc_num, cur_trm.name), file=sys.stderr)
+                    bar.print_progress_bar()
+                    continue
 
                 pdf, file_path = self.__open_pdf(cur_trm, doc_name)
                 if not pdf:
@@ -1310,15 +1343,11 @@ class TrmManager:
 
             print('Copying files from {}'.format(trm.name))
 
-            total = len(trm.documents)
-            bar = PrintProgressBar(start=0, total=total, prefix='Progress:', suffix='Complete', length=50)
-
             for doc in trm.documents:
-                if trm.documents[doc][-1] == 'Ок':
-                    file_path = os.path.join(trm.path, doc + '.pdf')
-                    shutil.copy2(file_path, target_dir)
-
-                bar.print_progress_bar()
+                if trm.documents[doc] is not None:
+                    if trm.documents[doc][-1] == 'Ок':
+                        file_path = os.path.join(trm.path, doc + '.pdf')
+                        shutil.copy2(file_path, target_dir)
 
         print('Copying files was successfully completed!')
 
