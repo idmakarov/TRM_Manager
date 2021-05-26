@@ -560,10 +560,6 @@ class ManagerGui(QMainWindow, main_window.Ui_MainWindow):
             else:
                 print('Received transmittals processing begins. It will take some time...')
 
-                total = len(item_ids)
-                if total:
-                    bar = PrintProgressBar(start=0, total=total, prefix='Progress:', suffix='Complete', length=50)
-
                 for item_id in item_ids:
                     trm = self.mgr.db.get_item(item_id)
                     self.mgr.parse_received_trm(trm)
@@ -571,8 +567,6 @@ class ManagerGui(QMainWindow, main_window.Ui_MainWindow):
                         print(f'WARNING: there are no documents in {trm.name}', file=sys.stderr)
                     else:
                         self.mgr.fill_vdr_fields(trm)
-
-                    bar.print_progress_bar()
         else:
             for item_id in item_ids:
                 trm = self.mgr.db.get_item(item_id)

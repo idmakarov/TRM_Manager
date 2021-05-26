@@ -10,6 +10,7 @@ import fitz
 from openpyxl import load_workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from PyPDF2 import PdfFileReader
+from win32com import client
 from xlrd import open_workbook
 
 import config
@@ -252,7 +253,6 @@ class TrmManager:
             if fnmatch.fnmatch(item_name, mask):
                 id_ = item_name_list.index(item_name)
                 vdr = self.db.get_item(id_)
-                print('VDR {} was found'.format(vdr.name))
                 return vdr.path
         if vdr is None:
             print('ERROR: VDR was not found!', file=sys.stderr)
@@ -941,7 +941,7 @@ class TrmManager:
                 subfolder = os.path.join(cur_trm.path, doc_name)
                 for sfile in os.listdir(subfolder):
                     if doc_name in sfile and os.path.isfile(os.path.join(subfolder, sfile)) and \
-                            '.pdf' not in sfile and not 'CRS' in sfile:
+                            '.pdf' not in sfile and 'CRS' not in sfile:
                         sheet3.cell(row=count-6, column=51).value = sfile
                         sheet3.cell(row=count-6, column=50).value = 'Native Format'
                         check = 1
@@ -1145,11 +1145,15 @@ class TrmManager:
             """
             [ifr_list, ifu_list] = self.__cfg[2].values()
 
+            total = len(docs)
+            bar = PrintProgressBar(start=0, total=total, prefix='Progress:', suffix='Complete', length=50)
+
             for doc in docs:
                 doc_num = docs[doc][0]
                 # Вычислим номер строки, в которой находится нужный документ
                 vdr_ind = self.__get_vdr_ind(xlsheet_data, doc_num)
                 if vdr_ind is None:
+                    bar.print_progress_bar()
                     continue
                 # Вычислим номер столбца, с которого начнём заполнять информацию из полученного трансмиттела
                 doc_rev = docs[doc][1]
@@ -1173,11 +1177,26 @@ class TrmManager:
                 # Код замечания CRS
                 xlsheet.cell(row=vdr_ind, column=req_col+2).value = docs[doc][2]
 
-        print('Adding required fields into VDR...')
+                bar.print_progress_bar()
+
+        print('{}. Adding required fields into VDR...'.format(cur_trm.name))
         vdr_tmp = self.__find_vdr(cur_trm.phase)
         if vdr_tmp is None:
             print('ERROR: there is no VDR for phase {}!'.format(cur_trm.phase), file=sys.stderr)
             return
+
+        # The win32com function to open Excel.
+        xlapp = client.Dispatch("Excel.Application")
+        xlapp.Visible = 0
+
+        # Open the file we want in Excel
+        workbook = xlapp.Workbooks.Open(vdr_tmp)
+
+        workbook.Saved = 0
+        workbook.Save()
+        workbook.Close(SaveChanges=True)
+        xlapp.Quit()
+
         wb = load_workbook(vdr_tmp)
         sheet = wb['VDR']
         wb_data = load_workbook(vdr_tmp, data_only=True)
@@ -1185,8 +1204,9 @@ class TrmManager:
 
         fill_doc_info(sheet, sheet_data, cur_trm.documents)
         # file_name = self.__working_dir + r'\vdr_' + cur_trm.phase + '.xlsx'
-        wb.save(vdr_tmp)
         wb_data.close()
+        wb.save(vdr_tmp)
+
         print('Required fields were successfully added into VDR')
 
     def __parse_all_docs_info_from_vdr(self, cur_vdr: Document):
