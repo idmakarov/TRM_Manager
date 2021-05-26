@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import QFileDialog, QMainWindow, QMessageBox, QRadioButton
 
 import main_window  # Это наш конвертированный файл дизайна
 from output_logger import OutputLogger
+from print_progress_bar import PrintProgressBar
 from trm_manager import TrmManager
 from trm_processing import Worker
 
@@ -557,14 +558,21 @@ class ManagerGui(QMainWindow, main_window.Ui_MainWindow):
                           'It will take some time...'.format(vdr.phase))
                     self.mgr.prepare_docs_for_printing(vdr)
             else:
+                print('Received transmittals processing begins. It will take some time...')
+
+                total = len(item_ids)
+                if total:
+                    bar = PrintProgressBar(start=0, total=total, prefix='Progress:', suffix='Complete', length=50)
+
                 for item_id in item_ids:
                     trm = self.mgr.db.get_item(item_id)
-                    print('{} processing begins. It will take some time...'.format(trm.name))
                     self.mgr.parse_received_trm(trm)
                     if not trm.documents:
                         print(f'WARNING: there are no documents in {trm.name}', file=sys.stderr)
                     else:
                         self.mgr.fill_vdr_fields(trm)
+
+                    bar.print_progress_bar()
         else:
             for item_id in item_ids:
                 trm = self.mgr.db.get_item(item_id)

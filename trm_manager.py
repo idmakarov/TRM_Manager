@@ -62,6 +62,13 @@ class TrmManager:
 
         print('Trying to load database...')
         prc_dir = self.__cfg[0]['process_dir']
+
+        if not os.path.exists(prc_dir):
+            try:
+                os.mkdir(prc_dir)
+            except:
+                print('ERROR: cannot create folder for database!', file=sys.stderr)
+
         self.__db_path = os.path.join(prc_dir, 'db.pickle')
         self.db = DataBase(self.__db_path)
 
@@ -1019,7 +1026,7 @@ class TrmManager:
         path : str
             Path to the transmittal inventory file.
         """
-        mask = trm_name + '.xls*'
+        mask = trm_name + '*.xls*'
         file_check = 0
         for item in os.listdir(path):
             file_check += 1
@@ -1033,7 +1040,7 @@ class TrmManager:
             try:
                 self.__get_received_trm_inventory_path(trm_name, path)
             except:
-                print('ERROR: TRM inventory file was not found!', file=sys.stderr)
+                print('ERROR: TRM inventory file for {} was not found!'.format(trm_name), file=sys.stderr)
 
     @staticmethod
     def clarify_doc_name(trm_doc_names, doc_name_to_clarify: str):
@@ -1047,6 +1054,10 @@ class TrmManager:
             List of files name in transmittal folder.
         doc_name_to_clarify : str
             Document name from TRM inventory file to be clarified.
+
+        Returns
+        -------
+        doc_name : str
         """
         trm_doc_names = list(trm_doc_names)
         name_1_list = [doc_name.split('ER')[0] for doc_name in trm_doc_names]
@@ -1071,8 +1082,6 @@ class TrmManager:
         -------
         None
         """
-        print('Processing {}...'.format(cur_trm.name))
-
         inventory_path = self.__get_received_trm_inventory_path(cur_trm.name, cur_trm.path)
         if inventory_path is None:
             return
@@ -1087,7 +1096,7 @@ class TrmManager:
             doc_rev_col = col_names.index('rev')
             crs_code_col = col_names.index('comments')
         except ValueError:
-            print('ERROR: cannot parse trm inventory file (unknown columns name)!', file=sys.stderr)
+            print('ERROR: cannot parse trm inventory file for {} (unknown columns name)!'.format(cur_trm.name), file=sys.stderr)
             return
 
         rng = range(7, sheet_data.nrows)
@@ -1103,8 +1112,6 @@ class TrmManager:
 
                 doc_name = self.clarify_doc_name(cur_trm.documents.keys(), doc_name)
                 cur_trm.documents[doc_name] = prop_list
-
-        print('Received TRM was successfully processed')
 
     def fill_vdr_fields(self, cur_trm: Transmittal):
         """
@@ -1138,14 +1145,11 @@ class TrmManager:
             """
             [ifr_list, ifu_list] = self.__cfg[2].values()
 
-            total = len(docs)
-            bar = PrintProgressBar(start=0, total=total, prefix='Progress:', suffix='Complete', length=50)
             for doc in docs:
                 doc_num = docs[doc][0]
                 # Вычислим номер строки, в которой находится нужный документ
                 vdr_ind = self.__get_vdr_ind(xlsheet_data, doc_num)
                 if vdr_ind is None:
-                    bar.print_progress_bar()
                     continue
                 # Вычислим номер столбца, с которого начнём заполнять информацию из полученного трансмиттела
                 doc_rev = docs[doc][1]
@@ -1168,13 +1172,12 @@ class TrmManager:
                 xlsheet.cell(row=vdr_ind, column=req_col+1).value = cur_trm.name
                 # Код замечания CRS
                 xlsheet.cell(row=vdr_ind, column=req_col+2).value = docs[doc][2]
-                bar.print_progress_bar()
 
         print('Adding required fields into VDR...')
         vdr_tmp = self.__find_vdr(cur_trm.phase)
         if vdr_tmp is None:
             print('ERROR: there is no VDR for phase {}!'.format(cur_trm.phase), file=sys.stderr)
-            return 1
+            return
         wb = load_workbook(vdr_tmp)
         sheet = wb['VDR']
         wb_data = load_workbook(vdr_tmp, data_only=True)
@@ -1337,17 +1340,22 @@ class TrmManager:
         item_names_list = self.db.get_item_names()
         trm_names_list = [item_name for item_name in item_names_list if 'TRM' in item_name]
 
+        print('Copying files from transmittals...')
+
+        total = len(trm_names_list)
+        bar = PrintProgressBar(start=0, total=total, prefix='Progress:', suffix='Complete', length=50)
+
         for trm_name in trm_names_list:
             trm_id = item_names_list.index(trm_name)
             trm = self.db.get_item(trm_id)
-
-            print('Copying files from {}'.format(trm.name))
 
             for doc in trm.documents:
                 if trm.documents[doc] is not None:
                     if trm.documents[doc][-1] == 'Ок':
                         file_path = os.path.join(trm.path, doc + '.pdf')
                         shutil.copy2(file_path, target_dir)
+
+            bar.print_progress_bar()
 
         print('Copying files was successfully completed!')
 
@@ -1426,8 +1434,10 @@ class TrmManager:
 
         total_size = self.__parse_docs_in_received_trms(doc_dict)
         target_free = shutil.disk_usage(target_dir).free
+        mb = 1024**2
+        print('Required disk space: {:.2f}\tFree space: {:.2f}'.format(total_size / mb, target_free / mb))
 
-        if target_free > total_size + 100*1024**2:
+        if target_free > total_size + 100*mb:
             self.__collect_docs_to_be_printed(target_dir)
         else:
             print('ERROR: disk space is not enough for copying files!', file=sys.stderr)
