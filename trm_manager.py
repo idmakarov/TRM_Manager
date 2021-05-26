@@ -1046,7 +1046,7 @@ class TrmManager:
     def clarify_doc_name(trm_doc_names, doc_name_to_clarify: str):
         """
         Compares document name from TRM inventory file and file name in corresponding folder.
-        If parts of the names before 'ER' match then return file name, else - document name from TRM inventory file.
+        If parts of the names before 'ER' match then return file name, else - empty string.
 
         Parameters
         ----------
@@ -1060,14 +1060,14 @@ class TrmManager:
         doc_name : str
         """
         trm_doc_names = list(trm_doc_names)
-        name_1_list = [doc_name.split('ER')[0] for doc_name in trm_doc_names]
-        name_2 = doc_name_to_clarify.split('ER')[0]
+        name_1_list = [doc_name.split('_')[0] for doc_name in trm_doc_names]
+        name_2 = doc_name_to_clarify.split('_')[0]
 
         try:
             index = name_1_list.index(name_2)
             return trm_doc_names[index]
         except ValueError:
-            return doc_name_to_clarify
+            return ''
 
     def parse_received_trm(self, cur_trm: Transmittal):
         """
@@ -1111,7 +1111,8 @@ class TrmManager:
                 prop_list = [doc_number, doc_rev, crs_code, phase, trm_date]
 
                 doc_name = self.clarify_doc_name(cur_trm.documents.keys(), doc_name)
-                cur_trm.documents[doc_name] = prop_list
+                if doc_name:
+                    cur_trm.documents[doc_name] = prop_list
 
     def fill_vdr_fields(self, cur_trm: Transmittal):
         """
@@ -1235,7 +1236,7 @@ class TrmManager:
         issue_cols = self.__find_issued_cols(sheet_data, '00')
         req_cols = [col + 4 for col in issue_cols]
 
-        print('VDR info is being parsed...')
+        print('Parsing VDR info...')
 
         rng = range(13, sheet_data.max_row + 1)
         total = len(rng)
@@ -1292,11 +1293,14 @@ class TrmManager:
         trm_names_list = [item_name for item_name in item_names_list if 'TRM' in item_name]
 
         print('Parsing documents info in received transmittals...')
+        total = len(trm_names_list)
+        bar = PrintProgressBar(start=0, total=total, prefix='Progress:', suffix='Complete', length=50)
 
         for trm_name in trm_names_list:
             trm_id = item_names_list.index(trm_name)
             trm = self.db.get_item(trm_id)
             self.parse_received_trm(trm)
+            bar.print_progress_bar()
 
         print('Getting pages info from documents...')
         total = len(doc_dict)
@@ -1321,7 +1325,7 @@ class TrmManager:
                     ].index(doc_num)
                     doc_name = list(cur_trm.documents)[doc_index]
                 except ValueError:
-                    print('ERROR: {} was not found in {}'.format(doc_num, cur_trm.name), file=sys.stderr)
+                    # print('ERROR: {} was not found in {}'.format(doc_num, cur_trm.name), file=sys.stderr)
                     bar.print_progress_bar()
                     continue
 
@@ -1373,7 +1377,12 @@ class TrmManager:
                 if trm.documents[doc] is not None:
                     if trm.documents[doc][-1] == 'Ок':
                         file_path = os.path.join(trm.path, doc + '.pdf')
-                        shutil.copy2(file_path, target_dir)
+                        target_path = os.path.join(target_dir, doc + '.pdf')
+
+                        if os.path.exists(target_path):
+                            continue
+                        else:
+                            shutil.copy2(file_path, target_dir)
 
             bar.print_progress_bar()
 
@@ -1455,7 +1464,7 @@ class TrmManager:
         total_size = self.__parse_docs_in_received_trms(doc_dict)
         target_free = shutil.disk_usage(target_dir).free
         mb = 1024**2
-        print('Required disk space: {:.2f}\tFree space: {:.2f}'.format(total_size / mb, target_free / mb))
+        print('Required disk space: {:.2f} MB\tFree space: {:.2f} MB'.format(total_size / mb, target_free / mb))
 
         if target_free > total_size + 100*mb:
             self.__collect_docs_to_be_printed(target_dir)
