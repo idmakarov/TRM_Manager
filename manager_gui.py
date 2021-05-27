@@ -562,11 +562,7 @@ class ManagerGui(QMainWindow, main_window.Ui_MainWindow):
 
                 for item_id in item_ids:
                     trm = self.mgr.db.get_item(item_id)
-                    self.mgr.parse_received_trm(trm)
-                    if not trm.documents:
-                        print(f'WARNING: there are no documents in {trm.name}', file=sys.stderr)
-                    else:
-                        self.mgr.fill_vdr_fields(trm)
+                    self.mgr.process_received_transmittals(trm)
         else:
             for item_id in item_ids:
                 trm = self.mgr.db.get_item(item_id)

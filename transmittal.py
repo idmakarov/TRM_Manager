@@ -24,8 +24,8 @@ class Transmittal:
         Name of the transmittal.
     path : str
         Absolute path to the transmittal folder.
-    phase : str
-        Phase of documents located in the transmittal folder.
+    phases : str
+        Phases of documents located in the transmittal folder.
 
     Methods
     -------
@@ -44,7 +44,7 @@ class Transmittal:
             
         self.__cfg = config.get_config()
         
-        self.phase = None
+        self.phases = None
         self.documents = self.__collect_docs()
     
     def __get_docs_in_subfolders(self):
@@ -87,15 +87,19 @@ class Transmittal:
         None
         """
         file_list = []
+        phase_list = []
         mask = self.__cfg[1]['vdr_mask']
         mask = mask.split('*')[0] + '*.pdf'
         alt_mask = mask.split('*')[0] + '*.PDF'
         for item in os.listdir(path):
             if (fnmatch.fnmatch(item, mask) or fnmatch.fnmatch(item, alt_mask)) and 'crs' not in item.lower():
 
-                self.phase = item.split('.')[1]
-                if self.phase == '0':
-                    self.phase = '1'
+                phase = item.split('.')[1]
+                if phase == '0':
+                    phase = '1'
+
+                phase_list.append(phase)
+
                 if 'att' not in item.lower():
                     doc_name = item
 
@@ -108,6 +112,7 @@ class Transmittal:
                 else:
                     doc_name = item[:-4]
                 file_list.append(doc_name)
+        self.phases = phase_list
         return file_list
 
     def __get_doc_name_checked(self, file_name: str, file_dir: str):

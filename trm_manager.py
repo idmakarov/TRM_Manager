@@ -40,14 +40,12 @@ class TrmManager:
         Creates comment review sheet for every existing document in the transmittal; optionally creates title page.
     create_trm_inventory(cur_trm: Transmittal, send_date: str)
         Creates transmittal inventory files.
-    fill_vdr_fields(self, cur_trm: Transmittal)
-        Fills required fields in VDR for each document in the transmittal.
-    parse_received_trm(cur_trm: Transmittal)
-        Parses info in documents corresponding to the current transmittal.
     parse_trm_docs(cur_trm: Transmittal, send_date: str)
         Parses data in documents corresponding to the current transmittal.
     prepare_docs_for_printing(cur_vdr: Document)
         Performs all preparations needed for printing documents from received transmittals.
+    process_received_transmittals(cur_trm: Transmittal)
+        Parses documents in selected transmittal and filled up required fields in VDR.
     update_db(is_received=False)
         Updates database by adding new TRMs and VDRs.
     update_paths_and_files(update_docs=False)
@@ -402,43 +400,55 @@ class TrmManager:
 
             return info_list, is_changed
 
-        print('TRM docs info is parsing...')
-        vdr_tmp = self.__find_vdr(cur_trm.phase)
-        if vdr_tmp is None:
-            print('ERROR: there is no VDR for phase {}!'.format(cur_trm.phase), file=sys.stderr)
-            return
-        # Загрузим данный VDR, при этом считываем только значения в ячейках
-        wb = load_workbook(vdr_tmp)
-        sheet = wb['VDR']
-        wb_data = load_workbook(vdr_tmp, data_only=True)
-        sheet_data = wb_data['VDR']
+        print('Parsing TRM docs info...')
 
-        total = len(cur_trm.documents)
-        bar = PrintProgressBar(start=0, total=total, prefix='Progress:', suffix='Complete', length=50)
-        check = 0
-        for doc in cur_trm.documents:
-            doc_info, is_changed = get_doc_info(sheet, sheet_data, doc)
-            if is_changed:
-                check += 1
-            if doc_info is None:
-                bar.print_progress_bar()
+        for phase in list(set(cur_trm.phases)):
+
+            print('...for phase {}'.format(phase))
+
+            vdr_tmp = self.__find_vdr(phase)
+            if vdr_tmp is None:
+                print('ERROR: there is no VDR for phase {}!'.format(phase), file=sys.stderr)
                 continue
-            cur_trm.documents[doc] = doc_info
-            bar.print_progress_bar()
+            # Загрузим данный VDR, при этом считываем только значения в ячейках
+            wb = load_workbook(vdr_tmp)
+            sheet = wb['VDR']
+            wb_data = load_workbook(vdr_tmp, data_only=True)
+            sheet_data = wb_data['VDR']
 
-        # i = 0
-        # if check:
-        #     while True:
-        #         try:
-        #             wb.save(vdr_tmp)
-        #             print('{} was changed and saved.'.format(os.path.split(vdr_tmp)[1]))
-        #             break
-        #         except PermissionError:
-        #             if not i:
-        #                 print('Please, close the file {} !'.format(os.path.split(vdr_tmp)[1]))
-        #                 i += 1
-        wb.close()
-        wb_data.close()
+            documents = [
+                doc
+                for doc, doc_phase in zip(cur_trm.documents, cur_trm.phases)
+                if doc_phase == phase
+            ]
+
+            total = len(documents)
+            bar = PrintProgressBar(start=0, total=total, prefix='Progress:', suffix='Complete', length=50)
+            check = 0
+            for doc in documents:
+                doc_info, is_changed = get_doc_info(sheet, sheet_data, doc)
+                if is_changed:
+                    check += 1
+                if doc_info is None:
+                    bar.print_progress_bar()
+                    continue
+                cur_trm.documents[doc] = doc_info
+                bar.print_progress_bar()
+
+            # i = 0
+            # if check:
+            #     while True:
+            #         try:
+            #             wb.save(vdr_tmp)
+            #             print('{} was changed and saved.'.format(os.path.split(vdr_tmp)[1]))
+            #             break
+            #         except PermissionError:
+            #             if not i:
+            #                 print('Please, close the file {} !'.format(os.path.split(vdr_tmp)[1]))
+            #                 i += 1
+            wb.close()
+            wb_data.close()
+
         print('TRM docs parsing was successfully ended')
 
     # Функция для записи свойств документа в диапазон ячеек
@@ -498,7 +508,7 @@ class TrmManager:
             -------
             None
             """
-            print(f'Title sheets are being added to {file_name}...')
+            print(f'Adding title sheets to {file_name}...')
             tit_path = os.path.join(self.__cfg[0]['templates_dir'], 'tit_template.xlsx')
             pasport = load_workbook(tit_path)
             pasport_tit = pasport['Cover Page']
@@ -598,7 +608,7 @@ class TrmManager:
             # }, from_format='xlsx').save_files(os.path.split(passport_path)[0])
             print('Title sheets were successfully added')
 
-        print('CRS files are creating...')
+        print('Creating CRS files...')
         trm_name = cur_trm.name
         trm_path = cur_trm.path
         template_path = os.path.join(self.__cfg[0]['templates_dir'], 'template.xlsx')
@@ -866,11 +876,11 @@ class TrmManager:
                                 'ASK - Автоматизированные системы управления электроснабжением'],
                         'PS': ['PS - Fire Alarm', 'PS - Пожарная сигнализация']}
         # Начнём заполнение для каждого документа
-        print('Template files are being filled...')
+        print('Filling up template files...')
         count = 7
         total = len(cur_trm.documents)
         bar = PrintProgressBar(start=0, total=total, prefix='Progress:', suffix='Complete', length=50)
-        for doc_name in cur_trm.documents:
+        for doc_name, phase in zip(cur_trm.documents, cur_trm.phases):
             # Заполним файл описи документов трансмиттела
             count += 1
             # Имя файла
@@ -982,7 +992,7 @@ class TrmManager:
                                                                           column=i).value
 
             sheet3.cell(row=count-6, column=18).value = 'P2 ~ Нелицензионные установки'
-            sheet3.cell(row=count-6, column=17).value = '4.' + cur_trm.phase
+            sheet3.cell(row=count-6, column=17).value = '4.' + phase
             sheet3.cell(row=count-6, column=16).value = '4 - ГПЗ'
             sheet3.cell(row=count-6, column=15).value = 'P2AM-7-0001-01'
             sheet3.cell(row=count-6, column=14).value = 'GAZprom Automation (1)'
@@ -1069,7 +1079,7 @@ class TrmManager:
         except ValueError:
             return ''
 
-    def parse_received_trm(self, cur_trm: Transmittal):
+    def __parse_received_trm(self, cur_trm: Transmittal):
         """
         Parses info in documents corresponding to the current transmittal.
 
@@ -1106,15 +1116,19 @@ class TrmManager:
                 doc_name = self.__preprocess_str(sheet_data.cell_value(rowx=i, colx=doc_name_col)[:-4])
                 doc_rev = self.__preprocess_str(sheet_data.cell_value(rowx=i, colx=doc_rev_col))
                 crs_code = self.__preprocess_str(sheet_data.cell_value(rowx=i, colx=crs_code_col))
-                phase = cur_trm.phase
+
+                phase = doc_number.split('.')[1]
+                if phase == '0':
+                    phase = '1'
+
                 trm_date = sheet_data.cell_value(rowx=0, colx=8)
                 prop_list = [doc_number, doc_rev, crs_code, phase, trm_date]
 
-                doc_name = self.clarify_doc_name(cur_trm.documents.keys(), doc_name)
+                doc_name = self.clarify_doc_name(cur_trm.documents, doc_name)
                 if doc_name:
                     cur_trm.documents[doc_name] = prop_list
 
-    def fill_vdr_fields(self, cur_trm: Transmittal):
+    def __fill_vdr_fields(self, cur_trm: Transmittal):
         """
         Fills required fields in VDR for each document in the transmittal.
 
@@ -1180,35 +1194,61 @@ class TrmManager:
 
                 bar.print_progress_bar()
 
-        print('{}. Adding required fields into VDR...'.format(cur_trm.name))
-        vdr_tmp = self.__find_vdr(cur_trm.phase)
-        if vdr_tmp is None:
-            print('ERROR: there is no VDR for phase {}!'.format(cur_trm.phase), file=sys.stderr)
-            return
+        print('{}. Filling up required fields in VDR...'.format(cur_trm.name))
 
-        # The win32com function to open Excel.
-        xlapp = client.Dispatch("Excel.Application")
-        xlapp.Visible = 0
+        for phase in list(set(cur_trm.phases)):
 
-        # Open the file we want in Excel
-        workbook = xlapp.Workbooks.Open(vdr_tmp)
+            print('...for phase {}'.format(phase))
 
-        workbook.Saved = 0
-        workbook.Save()
-        workbook.Close(SaveChanges=True)
-        xlapp.Quit()
+            vdr_tmp = self.__find_vdr(phase)
+            if vdr_tmp is None:
+                print('ERROR: there is no VDR for phase {}!'.format(phase), file=sys.stderr)
+                continue
 
-        wb = load_workbook(vdr_tmp)
-        sheet = wb['VDR']
-        wb_data = load_workbook(vdr_tmp, data_only=True)
-        sheet_data = wb_data['VDR']
+            # The win32com function to open Excel.
+            xlapp = client.Dispatch("Excel.Application")
+            xlapp.Visible = 0
 
-        fill_doc_info(sheet, sheet_data, cur_trm.documents)
-        # file_name = self.__working_dir + r'\vdr_' + cur_trm.phase + '.xlsx'
-        wb_data.close()
-        wb.save(vdr_tmp)
+            # Open the file we want in Excel
+            workbook = xlapp.Workbooks.Open(vdr_tmp)
 
-        print('Required fields were successfully added into VDR')
+            workbook.Saved = 0
+            workbook.Save()
+            workbook.Close(SaveChanges=True)
+            xlapp.Quit()
+
+            wb = load_workbook(vdr_tmp)
+            sheet = wb['VDR']
+            wb_data = load_workbook(vdr_tmp, data_only=True)
+            sheet_data = wb_data['VDR']
+
+            fill_doc_info(sheet, sheet_data, cur_trm.documents)
+
+            wb_data.close()
+            wb.save(vdr_tmp)
+
+        print('Required fields were successfully filled up in VDR')
+
+    def process_received_transmittals(self, cur_trm: Transmittal):
+        """
+        Parses documents in selected transmittal and filled up required fields in VDR.
+
+        Parameters
+        ----------
+        cur_trm : Transmittal
+            Current transmittal.
+
+        Returns
+        -------
+        None
+        """
+        print('Parsing documents info in {}...'.format(cur_trm.name))
+        self.__parse_received_trm(cur_trm)
+
+        if not cur_trm.documents:
+            print(f'WARNING: there are no documents in {cur_trm.name}', file=sys.stderr)
+        else:
+            self.__fill_vdr_fields(cur_trm)
 
     def __parse_all_docs_info_from_vdr(self, cur_vdr: Document):
         """
@@ -1299,7 +1339,7 @@ class TrmManager:
         for trm_name in trm_names_list:
             trm_id = item_names_list.index(trm_name)
             trm = self.db.get_item(trm_id)
-            self.parse_received_trm(trm)
+            self.__parse_received_trm(trm)
             bar.print_progress_bar()
 
         print('Getting pages info from documents...')
