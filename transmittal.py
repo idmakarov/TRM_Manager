@@ -53,7 +53,7 @@ class Transmittal:
 
         Returns
         -------
-        None
+        Iterable
         """
         print('Trying to find docs in subfolders')
         file_list = []
@@ -84,7 +84,7 @@ class Transmittal:
 
         Returns
         -------
-        None
+        Iterable
         """
         file_list = []
         phase_list = []
@@ -129,7 +129,7 @@ class Transmittal:
 
         Returns
         -------
-        None
+        str
         """
         src = os.path.join(file_dir, file_name)
         with fitz.open(src) as f:
@@ -181,7 +181,7 @@ class Transmittal:
 
         Returns
         -------
-        file_dict : dict
+        dict
         """
         file_list = self.__get_docs(self.path)
         

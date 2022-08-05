@@ -51,6 +51,7 @@ class TrmManager:
     update_paths_and_files(update_docs=False)
         Updates paths to TRMs and updates file list corresponding to the TRM.
     """
+
     def __init__(self, trm_dir: str, vdr_dir: str, print_dir: str):
         warnings.filterwarnings('ignore', category=UserWarning)
 
@@ -87,6 +88,7 @@ class TrmManager:
         -------
         None
         """
+
         def clear_name(raw_name: str):
             if '.xls' in raw_name:
                 item_name = raw_name.split('.xls')[0]
@@ -191,7 +193,7 @@ class TrmManager:
             s = re.sub(r'-(?=[\w\d]{2}-[\d]{4})', r'.', s)
             return self.__get_vdr_ind(xlsheet, s)
         else:
-            for i in range(13, xlsheet.max_row+1):
+            for i in range(13, xlsheet.max_row + 1):
                 cur_cell_value = xlsheet.cell(row=i, column=41).value
                 if cur_cell_value is not None and cur_cell_value == doc_name:
                     return i
@@ -224,10 +226,10 @@ class TrmManager:
 
         issue_cols = []
         str1 = 'issue for'
-        for i in range(62, xlsheet.max_column+1):
+        for i in range(62, xlsheet.max_column + 1):
             cell_value = xlsheet.cell(row=9, column=i).value
             if str1 in str(cell_value) and bool(re.search(filter_, cell_value)):
-                issue_cols.append(i+2)
+                issue_cols.append(i + 2)
         return issue_cols
 
     def __find_vdr(self, phase: str):
@@ -291,6 +293,7 @@ class TrmManager:
         -------
         None
         """
+
         def get_doc_info(xlsheet: Worksheet, xlsheet_data: Worksheet, doc_name: str):
             """
             Gets selected document info in VDR provided.
@@ -352,7 +355,7 @@ class TrmManager:
                 date_list_ = []
                 is_changed = False
                 ind = issue_list.index(revision)
-                for index, date_col in enumerate(issue_cols[:ind+1]):
+                for index, date_col in enumerate(issue_cols[:ind + 1]):
                     if index == ind:
                         xlsheet.cell(row=vdr_ind, column=date_col).value = datetime.datetime.strptime(send_date,
                                                                                                       r'%d.%m.%Y')
@@ -374,7 +377,7 @@ class TrmManager:
                     date_col = issue_cols[ind]
                     cur_date = datetime.datetime.now().date()
                     xlsheet.cell(row=vdr_ind, column=date_col).value = cur_date
-                    xlsheet.cell(row=vdr_ind, column=date_col+1).value = cur_trm.name
+                    xlsheet.cell(row=vdr_ind, column=date_col + 1).value = cur_trm.name
                     date_list_.append(cur_date.strftime('%d.%m.%Y'))
                     is_changed = True
 
@@ -490,6 +493,7 @@ class TrmManager:
         -------
         None
         """
+
         # Функция для создания нового титульника паспорта
         def new_tit(file_dict: dict, file_name: str, path_trm: str):
             """
@@ -528,8 +532,8 @@ class TrmManager:
             ru_en = doc_name_ru + '\n' + doc_name_en
             self.__unmerge_write_merge(pasport_tit, 'D41:M41', ru_en)
             # Номер документа в колонтитуле + ревизия поставщика
-            no_rev = 'Номер документа / Document Number:\n' + doc_number +\
-            '\n' + 'Редакция / Revision: ' + doc_rev
+            no_rev = 'Номер документа / Document Number:\n' + doc_number + \
+                     '\n' + 'Редакция / Revision: ' + doc_rev
             self.__unmerge_write_merge(pasport_tit, 'N42:O42', no_rev)
 
             def fill_revision_field(issue_list: list):
@@ -554,10 +558,10 @@ class TrmManager:
                 while k < date_list_len:
                     row = 37 - k
                     row2 = 47 + k
-                    pasport_tit['B'+str(row)] = issue_list[k]  # Ревизия (титул.)
-                    pasport_tit['C'+str(row)] = issue_list[k]  # Ревизия (титул.)
-                    pasport_tit['E'+str(row)] = issue
-                    pasport_tit['D'+str(row)] = date_list[k]  # Дата выпуска
+                    pasport_tit['B' + str(row)] = issue_list[k]  # Ревизия (титул.)
+                    pasport_tit['C' + str(row)] = issue_list[k]  # Ревизия (титул.)
+                    pasport_tit['E' + str(row)] = issue
+                    pasport_tit['D' + str(row)] = date_list[k]  # Дата выпуска
 
                     cells = 'F' + str(row) + ':H' + str(row)
                     self.__unmerge_write_merge(pasport_tit, cells, 'ChA')  # Подготовил
@@ -565,13 +569,13 @@ class TrmManager:
                     cells = 'I' + str(row) + ':J' + str(row)
                     self.__unmerge_write_merge(pasport_tit, cells, 'DZ')  # Проверил
 
-                    pasport_tit['K'+str(row)] = 'SC'  # Утвердил
-                    pasport_tit['C'+str(row2)] = issue_list[k]  # Ревизия (стр.2)
+                    pasport_tit['K' + str(row)] = 'SC'  # Утвердил
+                    pasport_tit['C' + str(row2)] = issue_list[k]  # Ревизия (стр.2)
 
                     cells = 'D' + str(row2) + ':E' + str(row2)
                     self.__unmerge_write_merge(pasport_tit, cells, issue_list[k])
 
-                    pasport_tit['F'+str(row2)] = 'ALL'  # Параграф (стр.2)
+                    pasport_tit['F' + str(row2)] = 'ALL'  # Параграф (стр.2)
 
                     cells = 'G' + str(row2) + ':O' + str(row2)
                     if 'IFR' in issue:
@@ -641,7 +645,7 @@ class TrmManager:
                 template_sheet['F22'] = doc_rev
                 # Сохраним файл CRS в корень TRM или в папку с документом, если
                 # файлы хранятся в отдельных папках
-                crs_name = str(doc)+'_CRS.xlsx'
+                crs_name = str(doc) + '_CRS.xlsx'
                 file_path = os.path.join(trm_path, doc)
                 if os.path.isfile(file_path + '.pdf'):
                     crs_path = os.path.join(trm_path, crs_name)
@@ -757,6 +761,7 @@ class TrmManager:
         -------
         None
         """
+
         def get_date_from_pdf(filename: str):
             """
             Parses date from pdf-file.
@@ -855,9 +860,9 @@ class TrmManager:
         # Считаем в списки номера документов и типы кодов документов
         doc_number_list = []
         doc_type_code_list = []
-        for i in range(1, sheet4.max_row+1):
+        for i in range(1, sheet4.max_row + 1):
             doc_number_list.append(sheet4.cell(row=i, column=1).value)
-        for i in range(1, sheet5.max_row+1):
+        for i in range(1, sheet5.max_row + 1):
             doc_type_code_list.append(sheet5.cell(row=i, column=1).value)
 
         # Запишем выбранную пользователем дату и название трансмиттела в заголовок файла описи
@@ -937,8 +942,8 @@ class TrmManager:
             for sfile in os.listdir(cur_trm.path):
                 if doc_name in sfile and os.path.isfile(os.path.join(cur_trm.path, sfile)):
                     if r'.pdf' not in sfile and 'CRS' not in sfile:
-                        sheet3.cell(row=count-6, column=51).value = sfile
-                        sheet3.cell(row=count-6, column=50).value = 'Native Format'
+                        sheet3.cell(row=count - 6, column=51).value = sfile
+                        sheet3.cell(row=count - 6, column=50).value = 'Native Format'
                         check = 1
                         break
                     elif r'.pdf' in sfile:
@@ -952,66 +957,67 @@ class TrmManager:
                 for sfile in os.listdir(subfolder):
                     if doc_name in sfile and os.path.isfile(os.path.join(subfolder, sfile)) and \
                             '.pdf' not in sfile and 'CRS' not in sfile:
-                        sheet3.cell(row=count-6, column=51).value = sfile
-                        sheet3.cell(row=count-6, column=50).value = 'Native Format'
+                        sheet3.cell(row=count - 6, column=51).value = sfile
+                        sheet3.cell(row=count - 6, column=50).value = 'Native Format'
                         check = 1
                         break
             # Если в папке трансмиттела нет данного документа
             if not check:
                 print('WARNING: there is no {} in {}!'.format(doc_name, cur_trm.name))
 
-            sheet3.cell(row=count-6, column=49).value = doc_name
-            sheet3.cell(row=count-6, column=48).value = '00. Holding Folder'
-            sheet3.cell(row=count-6, column=47).value = 'Latest'
-            sheet3.cell(row=count-6, column=45).value = cur_trm.name
-            sheet3.cell(row=count-6, column=43).value = sheet_format
-            sheet3.cell(row=count-6, column=42).value = 'ER'
-            sheet3.cell(row=count-6, column=36).value = page_count
-            sheet3.cell(row=count-6, column=35).value = page_count
+            sheet3.cell(row=count - 6, column=49).value = doc_name
+            sheet3.cell(row=count - 6, column=48).value = '00. Holding Folder'
+            sheet3.cell(row=count - 6, column=47).value = 'Latest'
+            sheet3.cell(row=count - 6, column=45).value = cur_trm.name
+            sheet3.cell(row=count - 6, column=43).value = sheet_format
+            sheet3.cell(row=count - 6, column=42).value = 'ER'
+            sheet3.cell(row=count - 6, column=36).value = page_count
+            sheet3.cell(row=count - 6, column=35).value = page_count
             if doc_disc_code == 'PS':
-                sheet3.cell(row=count-6, column=32).value = 'SAT - Security and Telecommunication'
-                sheet3.cell(row=count-6, column=31).value = 'SAT - Связь и телекоммуникации'
+                sheet3.cell(row=count - 6, column=32).value = 'SAT - Security and Telecommunication'
+                sheet3.cell(row=count - 6, column=31).value = 'SAT - Связь и телекоммуникации'
             else:
-                sheet3.cell(row=count-6, column=32).value = 'CSY - Control systems'
-                sheet3.cell(row=count-6, column=31).value = 'CSY - Системы управления'
+                sheet3.cell(row=count - 6, column=32).value = 'CSY - Control systems'
+                sheet3.cell(row=count - 6, column=31).value = 'CSY - Системы управления'
 
             if doc_class is not None:
                 doc_class_desc = doc_class_dict[doc_class]
-                sheet3.cell(row=count-6, column=30).value = doc_class_desc
+                sheet3.cell(row=count - 6, column=30).value = doc_class_desc
             else:
-                sheet3.cell(row=count-6, column=30).value = ''
+                sheet3.cell(row=count - 6, column=30).value = ''
 
             sub_disc_code = re.sub(r'\d', '', doc_disc_code)
-            sheet3.cell(row=count-6, column=28).value=package_type[sub_disc_code][0]
-            sheet3.cell(row=count-6, column=27).value=package_type[sub_disc_code][1]
+            sheet3.cell(row=count - 6, column=28).value = package_type[sub_disc_code][0]
+            sheet3.cell(row=count - 6, column=27).value = package_type[sub_disc_code][1]
 
             # Добавим описание в 19-26 столбцы из файла 'CSV_DB.xlsx'
             doc_number_slice = doc_number[:25]
             for i in range(2, 10):
-                sheet3.cell(row=count-6, column=i+17).value = sheet4.cell(row=doc_number_list.index(doc_number_slice)+1,
-                                                                          column=i).value
+                sheet3.cell(row=count - 6, column=i + 17).value = sheet4.cell(
+                    row=doc_number_list.index(doc_number_slice) + 1,
+                    column=i).value
 
-            sheet3.cell(row=count-6, column=18).value = 'P2 ~ Нелицензионные установки'
-            sheet3.cell(row=count-6, column=17).value = '4.' + phase
-            sheet3.cell(row=count-6, column=16).value = '4 - ГПЗ'
-            sheet3.cell(row=count-6, column=15).value = 'P2AM-7-0001-01'
-            sheet3.cell(row=count-6, column=14).value = 'GAZprom Automation (1)'
-            sheet3.cell(row=count-6, column=13).value = '0055'
-            sheet3.cell(row=count-6, column=12).value = 'CPECC'
+            sheet3.cell(row=count - 6, column=18).value = 'P2 ~ Нелицензионные установки'
+            sheet3.cell(row=count - 6, column=17).value = '4.' + phase
+            sheet3.cell(row=count - 6, column=16).value = '4 - ГПЗ'
+            sheet3.cell(row=count - 6, column=15).value = 'P2AM-7-0001-01'
+            sheet3.cell(row=count - 6, column=14).value = 'GAZprom Automation (1)'
+            sheet3.cell(row=count - 6, column=13).value = '0055'
+            sheet3.cell(row=count - 6, column=12).value = 'CPECC'
             try:
-                sheet3.cell(row=count-6, column=11).value = issue_dict[doc_issue]
+                sheet3.cell(row=count - 6, column=11).value = issue_dict[doc_issue]
             except KeyError:
                 pass
-            sheet3.cell(row=count-6, column=10).value = doc_rev
-            sheet3.cell(row=count-6, column=9).value = doc_rev_date
-            sheet3.cell(row=count-6, column=8).value = sheet5.cell(row=doc_type_code_list.index(doc_type_code)+1,
-                                                                   column=3).value
-            sheet3.cell(row=count-6, column=7).value = sheet5.cell(row=doc_type_code_list.index(doc_type_code)+1,
-                                                                   column=2).value
-            sheet3.cell(row=count-6, column=6).value = doc_type_code
-            sheet3.cell(row=count-6, column=5).value = doc_en_name
-            sheet3.cell(row=count-6, column=4).value = doc_ru_name
-            sheet3.cell(row=count-6, column=2).value = re.sub(r'_.*$', '', doc_name)
+            sheet3.cell(row=count - 6, column=10).value = doc_rev
+            sheet3.cell(row=count - 6, column=9).value = doc_rev_date
+            sheet3.cell(row=count - 6, column=8).value = sheet5.cell(row=doc_type_code_list.index(doc_type_code) + 1,
+                                                                     column=3).value
+            sheet3.cell(row=count - 6, column=7).value = sheet5.cell(row=doc_type_code_list.index(doc_type_code) + 1,
+                                                                     column=2).value
+            sheet3.cell(row=count - 6, column=6).value = doc_type_code
+            sheet3.cell(row=count - 6, column=5).value = doc_en_name
+            sheet3.cell(row=count - 6, column=4).value = doc_ru_name
+            sheet3.cell(row=count - 6, column=2).value = re.sub(r'_.*$', '', doc_name)
             bar.print_progress_bar()
 
         inventory_path = os.path.join(cur_trm.path, cur_trm.name + '.xlsx')
@@ -1106,7 +1112,8 @@ class TrmManager:
             doc_rev_col = col_names.index('rev')
             crs_code_col = col_names.index('comments')
         except ValueError:
-            print('ERROR: cannot parse trm inventory file for {} (unknown columns name)!'.format(cur_trm.name), file=sys.stderr)
+            print('ERROR: cannot parse trm inventory file for {} (unknown columns name)!'.format(cur_trm.name),
+                  file=sys.stderr)
             return
 
         rng = range(7, sheet_data.nrows)
@@ -1117,9 +1124,13 @@ class TrmManager:
                 doc_rev = self.__preprocess_str(sheet_data.cell_value(rowx=i, colx=doc_rev_col))
                 crs_code = self.__preprocess_str(sheet_data.cell_value(rowx=i, colx=crs_code_col))
 
-                phase = doc_number.split('.')[1]
-                if phase == '0':
-                    phase = '1'
+                try:
+                    phase = doc_number.split('.')[1]
+                    if phase == '0':
+                        phase = '1'
+                except IndexError:
+                    phase = None
+                    print('WARNING: cannot parse document {} phase!'.format(doc_number))
 
                 trm_date = sheet_data.cell_value(rowx=0, colx=8)
                 prop_list = [doc_number, doc_rev, crs_code, phase, trm_date]
@@ -1141,6 +1152,7 @@ class TrmManager:
         -------
         None
         """
+
         def fill_doc_info(xlsheet: Worksheet, xlsheet_data: Worksheet, docs: dict):
             """
             Fills required fields in VDR using documents dictionary provided.
@@ -1188,9 +1200,9 @@ class TrmManager:
                 # Дата получения трансмиттела с замечаниями
                 xlsheet.cell(row=vdr_ind, column=req_col).value = docs[doc][4]
                 # Номер трансмиттела
-                xlsheet.cell(row=vdr_ind, column=req_col+1).value = cur_trm.name
+                xlsheet.cell(row=vdr_ind, column=req_col + 1).value = cur_trm.name
                 # Код замечания CRS
-                xlsheet.cell(row=vdr_ind, column=req_col+2).value = docs[doc][2]
+                xlsheet.cell(row=vdr_ind, column=req_col + 2).value = docs[doc][2]
 
                 bar.print_progress_bar()
 
@@ -1334,6 +1346,11 @@ class TrmManager:
 
         print('Parsing documents info in received transmittals...')
         total = len(trm_names_list)
+
+        if total == 0:
+            print('No transmittals found!')
+            return 0
+
         bar = PrintProgressBar(start=0, total=total, prefix='Progress:', suffix='Complete', length=50)
 
         for trm_name in trm_names_list:
@@ -1344,6 +1361,11 @@ class TrmManager:
 
         print('Getting pages info from documents...')
         total = len(doc_dict)
+
+        if total == 0:
+            print('No documents found!')
+            return 0
+
         bar = PrintProgressBar(start=0, total=total, prefix='Progress:', suffix='Complete', length=50)
 
         total_size = 0
@@ -1502,11 +1524,16 @@ class TrmManager:
         doc_dict = self.__parse_all_docs_info_from_vdr(cur_vdr)
 
         total_size = self.__parse_docs_in_received_trms(doc_dict)
+
+        if total_size == 0:
+            print('No files found!')
+            return
+
         target_free = shutil.disk_usage(target_dir).free
-        mb = 1024**2
+        mb = 1024 ** 2
         print('Required disk space: {:.2f} MB\tFree space: {:.2f} MB'.format(total_size / mb, target_free / mb))
 
-        if target_free > total_size + 100*mb:
+        if target_free > total_size + 100 * mb:
             self.__collect_docs_to_be_printed(target_dir)
         else:
             print('ERROR: disk space is not enough for copying files!', file=sys.stderr)

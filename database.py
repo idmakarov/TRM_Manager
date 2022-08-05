@@ -1,6 +1,10 @@
 import os
 import pickle
 import sys
+from typing import Union
+
+from document import Document
+from transmittal import Transmittal
 
 
 class DataBase:
@@ -35,6 +39,8 @@ class DataBase:
     """
 
     def __init__(self, path: str):
+        self.__db = {}
+
         if os.path.isabs(path):
             self.__path = path
         else:
@@ -53,30 +59,30 @@ class DataBase:
         -------
         None
         """
-        id = len(self.__db)
-        self.__db[id] = item
+        id_ = len(self.__db)
+        self.__db[id_] = item
 
-    def get_item(self, id: int):
+    def get_item(self, id_: int) -> Union[Transmittal, Document, None]:
         """
         Gets the item from the database using id.
 
         Parameters
         ----------
-        id : int
+        id_ : int
             The value must be non-negative integer.
 
         Returns
         -------
-        object
+        Union[Transmittal, Document, None]
         """
         if self.is_empty():
             print('ERROR: database is empty!')
             return None
-        elif id >= len(self.__db) or id < 0:
+        elif id_ >= len(self.__db) or id_ < 0:
             print('ERROR: required item id does not exist!', file=sys.stderr)
             return None
         else:
-            return self.__db[id]
+            return self.__db[id_]
         
     def get_item_names(self):
         """
