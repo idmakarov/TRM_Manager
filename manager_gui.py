@@ -1,10 +1,12 @@
 import datetime
+import os
 import sys
 import time
 
 from PyQt5 import QtGui
 from PyQt5.QtCore import pyqtSlot, QCoreApplication, QDate, QThreadPool, QTimer
 from PyQt5.QtWidgets import QFileDialog, QMainWindow, QMessageBox, QRadioButton
+from pathlib import Path
 
 import main_window  # Это наш конвертированный файл дизайна
 from output_logger import OutputLogger
@@ -14,6 +16,9 @@ from trm_processing import Worker
 
 OUTPUT_LOGGER_STDOUT = OutputLogger(sys.stdout, OutputLogger.Severity.NORMAL)
 OUTPUT_LOGGER_STDERR = OutputLogger(sys.stderr, OutputLogger.Severity.ERROR)
+LOG_SEPARATOR = '-' * 40
+BEGIN_LOG_WITH = 'Start of the session'
+END_LOG_WITH = 'End of the session'
 
 sys.stdout = OUTPUT_LOGGER_STDOUT
 sys.stderr = OUTPUT_LOGGER_STDERR
@@ -94,6 +99,7 @@ class ManagerGui(QMainWindow, main_window.Ui_MainWindow):
     update_trm()
         Creates and launches thread to initialize and update database of TrmManager instance.
     """
+
     def __init__(self):
         # Это нужно для доступа к переменным, методам родительских классов
         super().__init__()
@@ -101,6 +107,7 @@ class ManagerGui(QMainWindow, main_window.Ui_MainWindow):
         OUTPUT_LOGGER_STDOUT.emit_write.connect(self.append_log)
         OUTPUT_LOGGER_STDERR.emit_write.connect(self.append_log)
 
+        self.first_log_row = ''
         self.timer = QTimer()
         self.is_received = False
         self.is_print = False
@@ -429,8 +436,10 @@ class ManagerGui(QMainWindow, main_window.Ui_MainWindow):
         """
         datetime_now = datetime.datetime.now()
         qdate_now = QDate(datetime_now)
-        print('-' * 40)
-        print('{} Start of the program'.format(datetime_now.strftime('%d.%m.%Y %H:%M:%S')))
+        print(LOG_SEPARATOR)
+
+        self.first_log_row = f"{datetime_now.strftime('%d.%m.%Y %H:%M:%S')} {BEGIN_LOG_WITH}"
+        print(self.first_log_row)
 
         if self.is_print:
             self.label.setText(self._translate("MainWindow", "Список доступных VDR"))
@@ -578,6 +587,36 @@ class ManagerGui(QMainWindow, main_window.Ui_MainWindow):
                     self.mgr.create_crs(trm)
                     self.mgr.create_trm_inventory(trm, self.send_date)
 
+    def get_all_logs(self):
+        """
+        Gets all logs from app terminal
+
+        Returns
+        -------
+        str
+        """
+        text = self.first_log_row + self.consoleOutput.toPlainText().rsplit(sep=self.first_log_row, maxsplit=1)[-1]
+        return text
+
+    def export_logs_to_file(self):
+        """
+        Exports all logs from terminal to file.
+
+        Returns
+        -------
+        None
+        """
+        date_str = datetime.datetime.now().strftime('%d%m%y_%H%M%S')
+        filename = "LOGS_" + date_str + '.txt'
+        path = os.path.join(os.path.abspath(os.getcwd()), 'LOGS')
+
+        Path(path).mkdir(parents=True, exist_ok=True)
+
+        text = self.get_all_logs()
+
+        with open(file=f'LOGS/{filename}', mode='w', encoding="utf-8") as f:
+            f.write(text)
+
     @pyqtSlot()
     def process_trm(self):
         """
@@ -596,6 +635,12 @@ class ManagerGui(QMainWindow, main_window.Ui_MainWindow):
             else:
                 text = 'Подготовка трансмиттелов к отправке успешно завершена!'
             self.show_message(title=title, text=text)
+
+            datetime_now = datetime.datetime.now()
+            end_str = f"{datetime_now.strftime('%d.%m.%Y %H:%M:%S')} {END_LOG_WITH}"
+            print(end_str)
+
+            self.export_logs_to_file()
             self.goto_start()
 
         self.timer.stop()
