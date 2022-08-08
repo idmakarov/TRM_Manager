@@ -1,5 +1,7 @@
 # Default ignored files
 /workspace.xml
+.git.bfg-report/
+LOGS/
 ### Python template
 # Byte-compiled / optimized / DLL files
 __pycache__/
